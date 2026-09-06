@@ -1,5 +1,7 @@
 # Architecture X-Ray
 
+**Live:** https://architecture-x-ray.greendune-d957aeeb.centralindia.azurecontainerapps.io
+
 Design architectures and understand why they fail. An architecture reasoning tool with two modes:
 
 - **Destruction mode** - load an architecture (the built-in demo, a plain-English description, a diagram image, or a structured JSON graph), scan it, and watch six independent analysis engines (reliability, scalability, security, cost, operations, AI) find realistic ways it breaks. Click a finding to see the exact components and relationships behind it, attack any component to see the blast radius, follow a request hop by hop, apply a fix and compare before/after.
@@ -29,7 +31,22 @@ npx tsc --noEmit   # type-check
 
 ## Optional: AI enrichment
 
-Copy `.env.example` to `.env.local` and set `ANTHROPIC_API_KEY` to enable AI-assisted ingestion (architecture descriptions and diagram images) and richer explanations. Everything else works without it.
+Copy `.env.example` to `.env.local` and set `ANTHROPIC_API_KEY` to enable AI-assisted ingestion (architecture descriptions and diagram images) and richer explanations. Everything else works without it. **The deployed instance does not set this key** - no external API calls, no variable cost, no matter how much traffic it gets.
+
+## Deployment (Azure)
+
+The live instance runs on **Azure Container Apps** in resource group `arytripathi-rg` (Central India):
+
+- **Registry:** `archxray.azurecr.io`, image `architecture-x-ray`. Built with `az acr build` (cloud-side, no local Docker required) from the multi-stage `Dockerfile`, using Next.js `output: "standalone"`.
+- **Compute:** Container Apps environment `archxray-env` → app `architecture-x-ray`. Consumption plan, 0.5 vCPU / 1 GiB, **scale-to-zero** (0-3 replicas) so idle cost is $0. Pulls images via its own **system-assigned managed identity** - no registry password is stored anywhere.
+- **CI/CD:** `.github/workflows/deploy.yml`. On every push to `main`: type-check, lint, test, then `az acr build` (tagged by commit SHA) and `az containerapp update`, then a health-check retry loop against `/api/health`. Authenticates to Azure via **OIDC federated credentials** (repo secrets `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` - identifiers, not passwords; no long-lived secret is stored). The deploy identity is scoped to exactly two roles: `AcrPush` on the registry and `Container Apps Contributor` on this one app - nothing else in the subscription.
+- **Not yet done:** a custom domain (needs a CNAME added in your DNS provider, then `az containerapp hostname add` + a managed certificate) and enabling the optional `ANTHROPIC_API_KEY` (add it as a Container Apps secret + env var reference; see the budget discussion in the project history before turning this on for public traffic - it has no built-in spend cap yet).
+
+To redeploy by hand instead of pushing:
+```bash
+az acr build --registry archxray --image architecture-x-ray:manual .
+az containerapp update --name architecture-x-ray --resource-group arytripathi-rg --image archxray.azurecr.io/architecture-x-ray:manual
+```
 
 ## Project structure
 
