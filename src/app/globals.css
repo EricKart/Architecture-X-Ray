@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/* Design tokens borrowed from arytripathi.com: warm sand background, ink text, terracotta accent. */
+@theme inline {
+  --color-sand: #fafaf8;
+  --color-sand-2: #f5f4ef;
+  --color-sand-3: #efede6;
+  --color-ink: #1c1c1a;
+  --color-ink-2: #48473f;
+  --color-ink-3: #8a8982;
+  --color-line: #e6e3db;
+  --color-line-2: #d8d5cb;
+  --color-terra: #c4622d;
+  --color-terra-2: #a04e22;
+  --color-terra-soft: #fde8d8;
+  --color-ok: #2f7d4f;
+  --color-ok-soft: #e3f1e8;
+  --color-warn: #b7791f;
+  --color-warn-soft: #fbf0d9;
+  --color-bad: #b42318;
+  --color-bad-soft: #fbe4e1;
+  --color-info: #2f5fa8;
+  --color-info-soft: #e4ecf8;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), ui-serif, Georgia, serif;
+  --font-mono: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--color-sand);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-size: 13.5px;
+}
+::selection { background: #fde8d8; color: #a04e22; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c8c6bc; border-radius: 3px; }
+*:focus-visible { outline: 2px solid rgba(196, 98, 45, 0.5); outline-offset: 2px; }
+
+.eyebrow { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-3); }
+.display { font-family: var(--font-display); letter-spacing: -0.02em; }
+.mono { font-family: var(--font-mono); font-size: 0.75rem; }
+.panel { background: #fff; border: 1px solid var(--color-line); }
+
+/* React Flow overrides */
+.react-flow__edge-path { stroke: #b9b6ab; stroke-width: 1.4; }
+.react-flow__edge.async .react-flow__edge-path { stroke-dasharray: 5 4; }
+.react-flow__edge.dim .react-flow__edge-path { stroke: #e2e0d8; }
+.react-flow__edge.hot .react-flow__edge-path { stroke: var(--color-terra); stroke-width: 2.2; }
+.react-flow__edge.down .react-flow__edge-path { stroke: var(--color-bad); stroke-width: 2.2; }
+.react-flow__edge.degraded .react-flow__edge-path { stroke: var(--color-warn); stroke-width: 2; }
+.react-flow__edge.trace .react-flow__edge-path { stroke: var(--color-info); stroke-width: 2.4; }
+.react-flow__edge-textbg { fill: #fafaf8; }
+.react-flow__edge-text { font-size: 9px; fill: #8a8982; font-family: var(--font-mono); }
+.react-flow__handle { opacity: 0; }
+.react-flow__node-zone { pointer-events: none; }
+
+@keyframes pulse-bad { 0%, 100% { box-shadow: 0 0 0 0 rgba(180, 35, 24, 0.35); } 50% { box-shadow: 0 0 0 8px rgba(180, 35, 24, 0); } }
+.node-down { animation: pulse-bad 1.6s ease-out infinite; }
+@keyframes flow-dash { to { stroke-dashoffset: -18; } }
+.react-flow__edge.trace .react-flow__edge-path { stroke-dasharray: 6 6; animation: flow-dash 0.8s linear infinite; }
