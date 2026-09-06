@@ -10,7 +10,7 @@ const SAMPLE = `A B2C fitness app for 250k users on AWS. React frontend behind C
 
 /** A minimal, hand-editable graph that satisfies every required field - built with the app's own
  * builder helpers so it is guaranteed to match the schema exactly (never hand-duplicated). */
-const STARTER_GRAPH = graph({
+export const STARTER_GRAPH = graph({
   id: "my-architecture",
   name: "My architecture",
   description: "A minimal starting point: client -> API -> database. Duplicate the component/edge blocks to add more.",

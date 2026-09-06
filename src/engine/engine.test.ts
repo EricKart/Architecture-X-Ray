@@ -9,6 +9,7 @@ import { applyPatch } from "./graph/patch";
 import { component, edge, graph } from "./graph/builder";
 import { generateArchitecture } from "./architect/generator";
 import { DEFAULT_REQUIREMENTS, inferRequirements } from "./architect/requirements";
+import { STARTER_GRAPH } from "../components/ImportDialog";
 
 describe("demo graph", () => {
   it("validates against the schema with referential integrity", () => {
@@ -192,5 +193,13 @@ describe("generic/self-hosted provider (no cloud account)", () => {
     expect(report.findings.some((f) => f.category === "secrets_exposure")).toBe(true);
     // No fabricated cloud rate-limit findings on a component that has no provider quota.
     expect(report.findings.some((f) => f.category.startsWith("bottleneck_provider_rate_limit"))).toBe(false);
+  });
+});
+
+describe("import dialog starter template", () => {
+  it("the one-click JSON starter graph always validates against the schema", () => {
+    const r = parseGraph(STARTER_GRAPH);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(() => analyzeArchitecture(r.graph)).not.toThrow();
   });
 });
