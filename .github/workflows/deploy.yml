@@ -1,0 +1,68 @@
+name: Build and deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write # required for OIDC login to Azure - no stored secrets/passwords
+  contents: read
+
+env:
+  REGISTRY: archxray.azurecr.io
+  IMAGE: architecture-x-ray
+  RESOURCE_GROUP: arytripathi-rg
+  CONTAINER_APP: architecture-x-ray
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --legacy-peer-deps
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Azure (OIDC, no stored credentials)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push image (cloud build, tagged by commit SHA)
+        run: |
+          az acr build \
+            --registry archxray \
+            --image ${{ env.IMAGE }}:${{ github.sha }} \
+            --image ${{ env.IMAGE }}:latest \
+            .
+
+      - name: Deploy the new image
+        run: |
+          az containerapp update \
+            --name ${{ env.CONTAINER_APP }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.sha }}
+
+      - name: Smoke-test the deployment
+        run: |
+          FQDN=$(az containerapp show --name ${{ env.CONTAINER_APP }} --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv)
+          echo "Deployed: https://$FQDN"
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "https://$FQDN/api/health") || code=000
+            if [ "$code" = "200" ]; then echo "Healthy ($code)"; exit 0; fi
+            echo "Attempt $i: got $code, retrying..."; sleep 10
+          done
+          echo "Deployment did not become healthy in time"; exit 1

@@ -8,6 +8,7 @@ import { BottomPanel } from "@/components/panels/BottomPanel";
 import { ArchitectView } from "@/components/architect/ArchitectView";
 import { ImportDialog } from "@/components/ImportDialog";
 import { Button } from "@/components/ui";
+import { Divider, useResizablePanel } from "@/components/Resizable";
 
 export function AppShell() {
   const mode = useXRay((s) => s.mode);
@@ -29,6 +30,8 @@ export function AppShell() {
   const ingestInfo = useXRay((s) => s.ingestInfo);
   const aiAvailable = useXRay((s) => s.aiAvailable);
   const architectPkg = useXRay((s) => s.architect.pkg);
+  const [rightWidth, setRightWidth] = useResizablePanel("xray:destruction:rightWidth", 380, 280, 640);
+  const [bottomHeight, setBottomHeight] = useResizablePanel("xray:destruction:bottomHeight", 300, 160, 640);
 
   useEffect(() => {
     if (!graph) void loadDemo();
@@ -78,28 +81,32 @@ export function AppShell() {
       {mode === "architect" ? (
         <ArchitectView />
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-[1fr_380px] grid-rows-[minmax(0,1fr)_300px]">
-          <main className="relative min-h-0 border-r border-line">
-            {!graph && <div className="flex h-full items-center justify-center text-xs text-ink-3">{loading.graph ? "Loading demo architecture..." : "No architecture loaded."}</div>}
-            {graph && <ArchitectureCanvas />}
-            {loading.analysis && (
-              <div className="absolute inset-x-0 bottom-0 border-t border-line bg-white/95 p-3 backdrop-blur">
-                <div className="eyebrow mb-1">Destruction engine</div>
-                <ol className="mono space-y-0.5 text-[11px]">
-                  {scanProgress.map((s, i) => <li key={i} className="text-ink-2">{i + 1}. {s}</li>)}
-                  <li className="text-terra">{scanProgress.length + 1}. ...</li>
-                </ol>
-              </div>
-            )}
-            {graph && !report && !loading.analysis && (
-              <div className="pointer-events-none absolute left-3 top-3 rounded border border-line bg-white/90 px-3 py-2 text-xs text-ink-2 shadow-sm">
-                <span className="font-medium text-ink">Destruction mode.</span> Press <span className="font-medium">Scan</span> to find what breaks, click any component to attack it, or import your own architecture.
-              </div>
-            )}
-            <Legend />
-          </main>
-          <aside className="min-h-0 overflow-auto bg-white"><RightPanel /></aside>
-          <section className="col-span-2 min-h-0 border-t border-line bg-white"><BottomPanel /></section>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1">
+            <main className="relative min-w-0 flex-1">
+              {!graph && <div className="flex h-full items-center justify-center text-xs text-ink-3">{loading.graph ? "Loading demo architecture..." : "No architecture loaded."}</div>}
+              {graph && <ArchitectureCanvas />}
+              {loading.analysis && (
+                <div className="absolute inset-x-0 bottom-0 border-t border-line bg-white/95 p-3 backdrop-blur">
+                  <div className="eyebrow mb-1">Destruction engine</div>
+                  <ol className="mono space-y-0.5 text-[11px]">
+                    {scanProgress.map((s, i) => <li key={i} className="text-ink-2">{i + 1}. {s}</li>)}
+                    <li className="text-terra">{scanProgress.length + 1}. ...</li>
+                  </ol>
+                </div>
+              )}
+              {graph && !report && !loading.analysis && (
+                <div className="pointer-events-none absolute left-3 top-3 rounded border border-line bg-white/90 px-3 py-2 text-xs text-ink-2 shadow-sm">
+                  <span className="font-medium text-ink">Destruction mode.</span> Press <span className="font-medium">Scan</span> to find what breaks, click any component to attack it, or import your own architecture.
+                </div>
+              )}
+              <Legend />
+            </main>
+            <Divider axis="x" onDelta={(d) => setRightWidth((w) => w - d)} title="Drag to resize the inspector panel" />
+            <aside style={{ width: rightWidth }} className="min-h-0 shrink-0 overflow-auto border-l border-line bg-white"><RightPanel /></aside>
+          </div>
+          <Divider axis="y" onDelta={(d) => setBottomHeight((h) => h - d)} title="Drag to resize the bottom panel" />
+          <section style={{ height: bottomHeight }} className="min-h-0 shrink-0 border-t border-line bg-white"><BottomPanel /></section>
         </div>
       )}
       <ImportDialog />

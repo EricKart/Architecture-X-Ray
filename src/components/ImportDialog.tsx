@@ -3,8 +3,35 @@ import { useState } from "react";
 import clsx from "clsx";
 import { useXRay } from "@/lib/store";
 import { Button, Eyebrow } from "@/components/ui";
+import { component, edge, graph } from "@/engine/graph/builder";
+import { api } from "@/lib/api";
 
 const SAMPLE = `A B2C fitness app for 250k users on AWS. React frontend behind CloudFront and a WAF. Node.js API on ECS Fargate with autoscaling. Single RDS PostgreSQL instance with daily backups. Redis on ElastiCache for sessions. S3 for photos. SQS queue with background workers for video processing. Cognito for authentication. OpenAI for workout recommendations. CloudWatch for monitoring and GitHub Actions for CI/CD.`;
+
+/** A minimal, hand-editable graph that satisfies every required field - built with the app's own
+ * builder helpers so it is guaranteed to match the schema exactly (never hand-duplicated). */
+const STARTER_GRAPH = graph({
+  id: "my-architecture",
+  name: "My architecture",
+  description: "A minimal starting point: client -> API -> database. Duplicate the component/edge blocks to add more.",
+  source: "structured",
+  zones: [
+    { id: "internet", name: "Internet", kind: "internet", trustLevel: 0 },
+    { id: "private", name: "Private network", kind: "private_subnet", trustLevel: 3 },
+  ],
+  components: [
+    component({ id: "users", name: "Users", type: "client", zoneId: "internet", exposure: "public", criticality: "medium", scaling: { model: "none" }, cost: { model: "free", category: "low" } }),
+    component({ id: "api", name: "API service", type: "service", zoneId: "private", exposure: "private", criticality: "critical", scaling: { model: "horizontal_auto", minInstances: 2, maxInstances: 6, rpsPerInstance: 100 }, redundancy: { replicas: 2, multiAz: true, multiRegion: false, failover: "automatic", failoverSeconds: 30 }, observability: { metrics: true, logs: true, traces: false, alerts: true }, security: { authentication: "jwt", encryptionInTransit: true }, cost: { model: "provisioned", category: "medium", monthlyUsd: { min: 100, max: 300 } }, operations: { owner: "backend", iac: true, deployMethod: "ci_cd" } }),
+    component({ id: "db", name: "Database", type: "relational_db", zoneId: "private", exposure: "private", criticality: "critical", stateful: true, scaling: { model: "vertical", maxConnections: 100 }, redundancy: { replicas: 1, multiAz: false, multiRegion: false, failover: "none" }, backup: { enabled: true, frequency: "daily" }, observability: { metrics: true, logs: true, traces: false, alerts: false }, security: { encryptionAtRest: true, encryptionInTransit: true, authentication: "password" }, cost: { model: "provisioned", category: "medium", monthlyUsd: { min: 80, max: 200 } }, operations: { owner: "backend" } }),
+  ],
+  edges: [
+    edge({ source: "users", target: "api", kind: "calls", protocol: "https", encrypted: true, authentication: "jwt" }),
+    edge({ source: "api", target: "db", kind: "writes", protocol: "postgres", encrypted: true, authentication: "password", connectionsPerInstance: 10 }),
+  ],
+  flows: [{ id: "f1", name: "Request", kind: "normal_request", description: "A request from the client to the database.", steps: [{ componentId: "users", action: "Call the API" }, { componentId: "api", edgeId: "users->api:calls", action: "Handle the request" }, { componentId: "db", edgeId: "api->db:writes", action: "Read or write data" }] }],
+  assumptions: [],
+  unknowns: [],
+});
 
 type Tab = "describe" | "json" | "image";
 
@@ -21,6 +48,7 @@ export function ImportDialog() {
   const [image, setImage] = useState<{ base64: string; mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif"; name: string } | null>(null);
   const [imageNote, setImageNote] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  const [demoLoading, setDemoLoading] = useState(false);
   if (!open) return null;
 
   const submit = async () => {
@@ -38,6 +66,19 @@ export function ImportDialog() {
       await importGraph({ kind: "structured", json: parsed });
     } else if (image) {
       await importGraph({ kind: "image", image: { base64: image.base64, mediaType: image.mediaType }, text: imageNote || undefined });
+    }
+  };
+
+  const loadDemoJson = async () => {
+    setDemoLoading(true);
+    setLocalError(null);
+    try {
+      const { graph: g } = await api.demo();
+      setJson(JSON.stringify(g, null, 2));
+    } catch {
+      setLocalError("Could not load the demo graph.");
+    } finally {
+      setDemoLoading(false);
     }
   };
 
@@ -90,9 +131,23 @@ export function ImportDialog() {
             </div>
           )}
           {tab === "json" && (
-            <div className="space-y-2">
-              <p className="text-xs text-ink-2">Paste an ArchitectureGraph JSON document (the format used by this tool; export one from the demo via <span className="mono">GET /api/demo</span>, or from Architect mode). It is validated before analysis.</p>
-              <textarea value={json} onChange={(e) => setJson(e.target.value)} rows={12} placeholder='{ "id": "...", "name": "...", "version": 1, "components": [...], "edges": [...] }' className="mono w-full rounded border border-line bg-sand p-2 text-[11px] focus:border-terra" />
+            <div className="space-y-3">
+              <p className="text-xs text-ink-2">This is the tool&apos;s own graph format - a full architecture, not a diagram. Everything below is required by the schema before a scan can run; use one of the templates rather than typing it from scratch.</p>
+              <details className="rounded border border-line bg-sand-2 open:pb-2" open>
+                <summary className="cursor-pointer px-2 py-1.5 text-[11px] font-medium text-ink">What the JSON needs to contain</summary>
+                <div className="space-y-2 px-2 text-[11px] leading-relaxed text-ink-2">
+                  <div><span className="font-medium text-ink">Top level:</span> <span className="mono">id, name, description, version: 1, source, regions[], zones[], components[], edges[]</span>. <span className="mono">flows, traffic, targets, assumptions, unknowns</span> are allowed to be empty arrays/omitted.</div>
+                  <div><span className="font-medium text-ink">Every zone:</span> <span className="mono">id, name, kind</span> (one of: internet, edge, public_subnet, private_subnet, isolated_subnet, managed_service, external_saas, ci_platform), <span className="mono">trustLevel</span> (0 = internet, higher = more trusted).</div>
+                  <div><span className="font-medium text-ink">Every component:</span> <span className="mono">id, name, type</span> (e.g. client, service, relational_db, cache, load_balancer, queue, llm_provider - see <span className="mono">src/engine/graph/types.ts</span> for the full list), <span className="mono">layer, zoneId</span> (must match a zone above), <span className="mono">exposure</span> (public/private/internal), <span className="mono">stateful</span> (true/false), <span className="mono">criticality</span> (critical/high/medium/low), and four required objects - <span className="mono">scaling</span> (needs <span className="mono">model</span>), <span className="mono">redundancy</span> (needs <span className="mono">replicas, multiAz, multiRegion, failover</span>), <span className="mono">observability</span> (needs the four booleans <span className="mono">metrics, logs, traces, alerts</span>), <span className="mono">cost</span> (needs <span className="mono">model, category</span>) - plus <span className="mono">security: {`{}`}</span> and <span className="mono">operations: {`{}`}</span> (an empty object is valid) and an <span className="mono">evidence</span> level (fact/inference/assumption/unknown).</div>
+                  <div><span className="font-medium text-ink">Every edge:</span> <span className="mono">id, source, target</span> (component ids above), <span className="mono">kind</span> (calls/reads/writes/publishes/consumes/authenticates_with/routes_to/...), <span className="mono">sync</span> (sync/async), <span className="mono">criticality</span> (hard/soft), <span className="mono">evidence</span>.</div>
+                  <div>Every id must be unique, and every edge&apos;s <span className="mono">source</span>/<span className="mono">target</span> must reference a component id that exists. The dialog validates all of this and shows exactly what&apos;s wrong before importing.</div>
+                </div>
+              </details>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => setJson(JSON.stringify(STARTER_GRAPH, null, 2))}>Load a 3-component starter</Button>
+                <Button variant="secondary" onClick={loadDemoJson} disabled={demoLoading}>{demoLoading ? "Loading..." : "Load the full demo as a reference"}</Button>
+              </div>
+              <textarea value={json} onChange={(e) => setJson(e.target.value)} rows={14} placeholder='{ "id": "...", "name": "...", "version": 1, "components": [...], "edges": [...] }' className="mono w-full rounded border border-line bg-sand p-2 text-[11px] focus:border-terra" />
             </div>
           )}
           {tab === "image" && (

@@ -8,6 +8,7 @@ import { Button, Empty, EvidenceChip, Eyebrow, ScoreBar, SeverityBadge, Stat, mo
 import { ArchitectureCanvas } from "@/components/canvas/ArchitectureCanvas";
 import { RightPanel } from "@/components/panels/RightPanel";
 import { BottomPanel } from "@/components/panels/BottomPanel";
+import { Divider, useResizablePanel } from "@/components/Resizable";
 
 const TABS: Array<{ id: ArchitectTab; label: string }> = [
   { id: "inventory", label: "Component inventory" },
@@ -24,16 +25,28 @@ const TABS: Array<{ id: ArchitectTab; label: string }> = [
 export function ArchitectView() {
   const pkg = useXRay((s) => s.architect.pkg);
   const [formOpen, setFormOpen] = useState(true);
+  const [formWidth, setFormWidth] = useResizablePanel("xray:architect:formWidth", 400, 280, 640);
+  const [rightWidth, setRightWidth] = useResizablePanel("xray:architect:rightWidth", 360, 280, 640);
+  const [bottomHeight, setBottomHeight] = useResizablePanel("xray:architect:bottomHeight", 300, 160, 640);
   return (
-    <div className={clsx("grid min-h-0 flex-1", formOpen ? "grid-cols-[400px_1fr_360px]" : "grid-cols-[0px_1fr_360px]", "grid-rows-[minmax(0,1fr)_300px]")}>
-      <aside className={clsx("min-h-0 overflow-auto border-r border-line bg-white", !formOpen && "hidden")}><RequirementsForm /></aside>
-      <main className="relative min-h-0 border-r border-line">
-        <button onClick={() => setFormOpen((v) => !v)} className="absolute left-2 top-2 z-10 rounded border border-line bg-white px-2 py-1 text-[11px] text-ink-2 hover:border-terra">{formOpen ? "Hide requirements" : "Show requirements"}</button>
-        {pkg ? <ArchitectureCanvas /> : <Empty title="Requirements to architecture" body="Describe the system on the left, adjust the inferred requirements, and generate. The proposal is a full graph: every component is inspectable, every request traceable, and the same destruction engine scans it for residual risk." />}
-        {pkg?.warnings.length ? <div className="pointer-events-none absolute bottom-3 left-3 max-w-md rounded border border-warn/40 bg-warn-soft/90 px-3 py-2 text-[11px] text-warn">{pkg.warnings.map((w, i) => <div key={i}>{w}</div>)}</div> : null}
-      </main>
-      <aside className="min-h-0 overflow-auto bg-white"><RightPanel /></aside>
-      <section className="col-span-3 min-h-0 border-t border-line bg-white"><ArchitectBottom /></section>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1">
+        {formOpen && (
+          <>
+            <aside style={{ width: formWidth }} className="min-h-0 shrink-0 overflow-auto border-r border-line bg-white"><RequirementsForm /></aside>
+            <Divider axis="x" onDelta={(d) => setFormWidth((w) => w + d)} title="Drag to resize the requirements panel" />
+          </>
+        )}
+        <main className="relative min-h-0 min-w-0 flex-1">
+          <button onClick={() => setFormOpen((v) => !v)} className="absolute left-2 top-2 z-10 rounded border border-line bg-white px-2 py-1 text-[11px] text-ink-2 hover:border-terra">{formOpen ? "Hide requirements" : "Show requirements"}</button>
+          {pkg ? <ArchitectureCanvas /> : <Empty title="Requirements to architecture" body="Describe the system on the left, adjust the inferred requirements, and generate. The proposal is a full graph: every component is inspectable, every request traceable, and the same destruction engine scans it for residual risk." />}
+          {pkg?.warnings.length ? <div className="pointer-events-none absolute bottom-3 left-3 max-w-md rounded border border-warn/40 bg-warn-soft/90 px-3 py-2 text-[11px] text-warn">{pkg.warnings.map((w, i) => <div key={i}>{w}</div>)}</div> : null}
+        </main>
+        <Divider axis="x" onDelta={(d) => setRightWidth((w) => w - d)} title="Drag to resize the inspector panel" />
+        <aside style={{ width: rightWidth }} className="min-h-0 shrink-0 overflow-auto border-l border-line bg-white"><RightPanel /></aside>
+      </div>
+      <Divider axis="y" onDelta={(d) => setBottomHeight((h) => h - d)} title="Drag to resize the bottom panel" />
+      <section style={{ height: bottomHeight }} className="min-h-0 shrink-0 border-t border-line bg-white"><ArchitectBottom /></section>
     </div>
   );
 }
