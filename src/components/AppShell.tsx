@@ -5,6 +5,8 @@ import { useXRay } from "@/lib/store";
 import { ArchitectureCanvas } from "@/components/canvas/ArchitectureCanvas";
 import { RightPanel } from "@/components/panels/RightPanel";
 import { BottomPanel } from "@/components/panels/BottomPanel";
+import { ArchitectView } from "@/components/architect/ArchitectView";
+import { ImportDialog } from "@/components/ImportDialog";
 import { Button } from "@/components/ui";
 
 export function AppShell() {
@@ -13,6 +15,7 @@ export function AppShell() {
   const graph = useXRay((s) => s.graph);
   const report = useXRay((s) => s.report);
   const loadDemo = useXRay((s) => s.loadDemo);
+  const checkHealth = useXRay((s) => s.checkHealth);
   const scan = useXRay((s) => s.scan);
   const loading = useXRay((s) => s.loading);
   const error = useXRay((s) => s.error);
@@ -22,10 +25,15 @@ export function AppShell() {
   const trace = useXRay((s) => s.trace);
   const clearSimulation = useXRay((s) => s.clearSimulation);
   const clearTrace = useXRay((s) => s.clearTrace);
+  const setImportOpen = useXRay((s) => s.setImportOpen);
+  const ingestInfo = useXRay((s) => s.ingestInfo);
+  const aiAvailable = useXRay((s) => s.aiAvailable);
+  const architectPkg = useXRay((s) => s.architect.pkg);
 
   useEffect(() => {
     if (!graph) void loadDemo();
-  }, [graph, loadDemo]);
+    if (aiAvailable === null) void checkHealth();
+  }, [graph, loadDemo, aiAvailable, checkHealth]);
 
   return (
     <div className="flex h-screen flex-col bg-sand">
@@ -42,12 +50,17 @@ export function AppShell() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          {graph && <span className="mono hidden text-[11px] text-ink-3 lg:inline">{graph.name}{appliedFixes.length ? ` (+${appliedFixes.length} fix${appliedFixes.length > 1 ? "es" : ""})` : ""}</span>}
+          <span className={clsx("mono hidden text-[10px] md:inline", aiAvailable ? "text-ok" : "text-ink-3")} title="AI layer is optional: used for text/diagram extraction and richer explanations">{aiAvailable === null ? "" : aiAvailable ? "AI: on" : "AI: off (deterministic engine only)"}</span>
+          {mode === "destruction" && graph && <span className="mono hidden text-[11px] text-ink-3 lg:inline">{graph.name}{appliedFixes.length ? ` (+${appliedFixes.length} fix${appliedFixes.length > 1 ? "es" : ""})` : ""}</span>}
           {(simulation || trace) && <Button variant="ghost" onClick={() => { clearSimulation(); clearTrace(); }}>Clear overlay</Button>}
-          <Button variant="secondary" onClick={loadDemo} disabled={loading.graph}>Load demo</Button>
           {mode === "destruction" && (
-            <Button onClick={scan} disabled={!graph || loading.analysis}>{loading.analysis ? "Scanning..." : report ? "Re-scan" : "Scan demo architecture"}</Button>
+            <>
+              <Button variant="secondary" onClick={() => setImportOpen(true)}>Import architecture</Button>
+              <Button variant="secondary" onClick={loadDemo} disabled={loading.graph}>Load demo</Button>
+              <Button onClick={scan} disabled={!graph || loading.analysis}>{loading.analysis ? "Scanning..." : report ? "Re-scan" : graph?.source === "demo" ? "Scan demo architecture" : "Scan architecture"}</Button>
+            </>
           )}
+          {mode === "architect" && architectPkg && <Button variant="secondary" onClick={scan} disabled={loading.analysis}>{loading.analysis ? "Scanning..." : "Re-scan proposal"}</Button>}
         </div>
       </header>
 
@@ -56,15 +69,18 @@ export function AppShell() {
           <span className="font-medium">Error:</span> {error}
         </div>
       )}
+      {mode === "destruction" && ingestInfo && ingestInfo.warnings.length > 0 && (
+        <div className="border-b border-warn/30 bg-warn-soft px-4 py-1.5 text-xs text-warn">
+          <span className="font-medium">Imported via {ingestInfo.method}.</span> {ingestInfo.warnings.join(" ")}
+        </div>
+      )}
 
       {mode === "architect" ? (
-        <ArchitectPlaceholder />
+        <ArchitectView />
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-[1fr_380px] grid-rows-[minmax(0,1fr)_300px]">
           <main className="relative min-h-0 border-r border-line">
-            {!graph && (
-              <div className="flex h-full items-center justify-center text-xs text-ink-3">{loading.graph ? "Loading demo architecture..." : "No architecture loaded."}</div>
-            )}
+            {!graph && <div className="flex h-full items-center justify-center text-xs text-ink-3">{loading.graph ? "Loading demo architecture..." : "No architecture loaded."}</div>}
             {graph && <ArchitectureCanvas />}
             {loading.analysis && (
               <div className="absolute inset-x-0 bottom-0 border-t border-line bg-white/95 p-3 backdrop-blur">
@@ -77,7 +93,7 @@ export function AppShell() {
             )}
             {graph && !report && !loading.analysis && (
               <div className="pointer-events-none absolute left-3 top-3 rounded border border-line bg-white/90 px-3 py-2 text-xs text-ink-2 shadow-sm">
-                <span className="font-medium text-ink">Destruction mode.</span> Press <span className="font-medium">Scan demo architecture</span> to find what breaks, or click any component and attack it.
+                <span className="font-medium text-ink">Destruction mode.</span> Press <span className="font-medium">Scan</span> to find what breaks, click any component to attack it, or import your own architecture.
               </div>
             )}
             <Legend />
@@ -86,6 +102,7 @@ export function AppShell() {
           <section className="col-span-2 min-h-0 border-t border-line bg-white"><BottomPanel /></section>
         </div>
       )}
+      <ImportDialog />
     </div>
   );
 }
@@ -98,22 +115,6 @@ function Legend() {
       <span><span className="mr-1 inline-block h-2 w-2 rounded-sm bg-bad align-middle" />down</span>
       <span><span className="mr-1 inline-block h-2 w-2 rounded-sm bg-warn align-middle" />degraded</span>
       <span><span className="mr-1 inline-block h-2 w-2 rounded-sm bg-info align-middle" />trace</span>
-    </div>
-  );
-}
-
-function ArchitectPlaceholder() {
-  const setMode = useXRay((s) => s.setMode);
-  return (
-    <div className="flex flex-1 items-center justify-center p-8">
-      <div className="max-w-lg text-center">
-        <div className="eyebrow">Architect mode</div>
-        <div className="display mt-2 text-2xl">Requirements to architecture</div>
-        <p className="mt-3 text-sm leading-relaxed text-ink-2">
-          Architect mode collects business, traffic, reliability, data, security, AI and operations requirements and generates a complete architecture with a component inventory, request flows, decision records, cost model and the same destruction analysis. It is the next slice of this build and is not wired yet.
-        </p>
-        <div className="mt-4"><Button onClick={() => setMode("destruction")}>Go to Destruction mode</Button></div>
-      </div>
     </div>
   );
 }

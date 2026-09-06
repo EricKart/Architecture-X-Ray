@@ -200,7 +200,7 @@ export function analyzeOperations(graph: ArchitectureGraph): { findings: Finding
   // Hidden dependencies: edges that were inferred, and components with unmonitored fan-in.
   const inferredEdges = graph.edges.filter((e) => e.evidence === "inference" || e.evidence === "assumption");
   checklist.push({ item: "Dependency map completeness", status: inferredEdges.length === 0 ? "pass" : inferredEdges.length > 5 ? "fail" : "warn", detail: inferredEdges.length ? `${inferredEdges.length} dependencies are inferred, not declared.` : "All dependencies declared." });
-  if (inferredEdges.length > 3) {
+  if (inferredEdges.length > 3 && graph.source !== "architect") {
     findings.push({
       id: "ops-hidden-deps",
       engine: "operations",

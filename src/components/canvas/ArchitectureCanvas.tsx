@@ -8,7 +8,7 @@ import {
   Globe, Server, Database, HardDrive, Cpu, Shield, Lock, KeyRound, Layers, MessageSquare, Boxes, Brain, Activity, GitBranch, Waypoints, Network, Cloud, Users, Zap, Search, Mail, CreditCard, Timer, Radio,
 } from "lucide-react";
 import type { ArchitectureGraph, Component, ComponentType } from "@/engine/graph/types";
-import { useXRay } from "@/lib/store";
+import { useXRay, useActiveGraph, useActiveReport } from "@/lib/store";
 
 const ICONS: Partial<Record<ComponentType, React.ComponentType<{ size?: number; className?: string }>>> = {
   client: Users, dns: Globe, cdn: Cloud, waf: Shield, load_balancer: Waypoints, api_gateway: Waypoints, identity_provider: KeyRound, web_frontend: Layers,
@@ -127,8 +127,8 @@ async function layout(graph: ArchitectureGraph): Promise<{ nodes: Node[]; edges:
 }
 
 function CanvasInner() {
-  const graph = useXRay((s) => s.graph);
-  const report = useXRay((s) => s.report);
+  const graph = useActiveGraph();
+  const report = useActiveReport();
   const selectedComponentId = useXRay((s) => s.selectedComponentId);
   const selectedFindingId = useXRay((s) => s.selectedFindingId);
   const simulation = useXRay((s) => s.simulation);

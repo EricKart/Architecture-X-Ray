@@ -1,15 +1,15 @@
 "use client";
 import { useMemo, useState } from "react";
 import clsx from "clsx";
-import { useXRay } from "@/lib/store";
+import { useXRay, useActiveGraph, useActiveReport } from "@/lib/store";
 import { Button, ConfidenceChip, EvidenceChip, Eyebrow, KV, SeverityBadge } from "@/components/ui";
 import { explainFinding } from "@/engine/teaching/explain";
 import type { Finding } from "@/engine/analysis/types";
 import type { Component } from "@/engine/graph/types";
 
 export function RightPanel() {
-  const graph = useXRay((s) => s.graph);
-  const report = useXRay((s) => s.report);
+  const graph = useActiveGraph();
+  const report = useActiveReport();
   const selectedComponentId = useXRay((s) => s.selectedComponentId);
   const selectedFindingId = useXRay((s) => s.selectedFindingId);
   const finding = report?.findings.find((f) => f.id === selectedFindingId);
@@ -22,8 +22,8 @@ export function RightPanel() {
 }
 
 function GraphOverview() {
-  const graph = useXRay((s) => s.graph)!;
-  const report = useXRay((s) => s.report);
+  const graph = useActiveGraph()!;
+  const report = useActiveReport();
   return (
     <div className="space-y-4 p-4">
       <div>
@@ -83,8 +83,8 @@ function Mini({ label, value }: { label: string; value: string | number }) {
 }
 
 function ComponentDetail({ component: c }: { component: Component }) {
-  const graph = useXRay((s) => s.graph)!;
-  const report = useXRay((s) => s.report);
+  const graph = useActiveGraph()!;
+  const report = useActiveReport();
   const simulate = useXRay((s) => s.simulate);
   const selectFinding = useXRay((s) => s.selectFinding);
   const runTrace = useXRay((s) => s.runTrace);
@@ -214,7 +214,7 @@ function EdgeRow({ label, e }: { label: string; e: { kind: string; sync: string;
 }
 
 function FindingDetail({ finding: f }: { finding: Finding }) {
-  const graph = useXRay((s) => s.graph)!;
+  const graph = useActiveGraph()!;
   const simulate = useXRay((s) => s.simulate);
   const applyFix = useXRay((s) => s.applyFix);
   const selectFinding = useXRay((s) => s.selectFinding);

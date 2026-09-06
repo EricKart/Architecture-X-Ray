@@ -86,11 +86,11 @@ export function analyzeReliability(graph: ArchitectureGraph): { findings: Findin
         });
       }
     }
-    if (scenario.kind === "identity_provider" && r.userImpact !== "none" && r.userImpact !== "low") {
+    if (scenario.kind === "identity_provider" && r.flows.some((f) => f.state === "down")) {
       const idp = idx.byType("identity_provider");
       findings.push(externalDependencyFinding("rel-idp", "identity provider", idp, r, "Cache JWKS/public keys locally with a long grace period, keep issued sessions valid during provider outages, and avoid calling the provider on every request."));
     }
-    if (scenario.kind === "ai_provider" && r.userImpact !== "none" && r.userImpact !== "low") {
+    if (scenario.kind === "ai_provider" && r.flows.some((f) => f.state === "down")) {
       const ai = idx.byType("llm_provider", "embedding_service", "ml_inference");
       findings.push(externalDependencyFinding("rel-ai-provider", "AI model provider", ai, r, "Route model calls through a gateway with a secondary provider/model, per-tenant rate limiting and a circuit breaker so that non-AI features keep working during provider incidents."));
     }

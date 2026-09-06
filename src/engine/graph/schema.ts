@@ -26,7 +26,7 @@ const layerSchema = z.enum([
 ]);
 
 const providerSchema = z.enum([
-  "azure", "aws", "gcp", "cloudflare", "openai", "anthropic", "auth0", "github", "vercel",
+  "azure", "aws", "gcp", "generic", "cloudflare", "openai", "anthropic", "auth0", "github", "vercel",
   "self_hosted", "saas", "unknown",
 ]);
 
@@ -146,6 +146,7 @@ export const componentSchema = z.object({
       modelPinned: z.boolean().optional(),
       untrustedInput: z.boolean().optional(),
       modelRouting: z.boolean().optional(),
+      standby: z.boolean().optional(),
     })
     .optional(),
   evidence,

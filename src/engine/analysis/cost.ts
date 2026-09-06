@@ -128,7 +128,7 @@ function optimize(graph: ArchitectureGraph, lines: CostLine[]) {
     }
 
     // Premium LLM for every request, no caching, no routing.
-    if (c.type === "llm_provider" && c.ai) {
+    if (c.type === "llm_provider" && c.ai && !c.ai.standby) {
       const issues: string[] = [];
       if (!c.ai.modelRouting) issues.push("a single premium model handles every request, including short classification and summarisation calls");
       if (!c.ai.responseCaching) issues.push("identical prompts are never cached");

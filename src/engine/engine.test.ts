@@ -7,6 +7,8 @@ import { traceFlow } from "./simulation/trace";
 import { analyzeArchitecture } from "./analysis";
 import { applyPatch } from "./graph/patch";
 import { component, edge, graph } from "./graph/builder";
+import { generateArchitecture } from "./architect/generator";
+import { DEFAULT_REQUIREMENTS, inferRequirements } from "./architect/requirements";
 
 describe("demo graph", () => {
   it("validates against the schema with referential integrity", () => {
@@ -153,5 +155,42 @@ describe("a well-built architecture", () => {
     expect(r.findings.filter((f) => f.severity === "critical")).toHaveLength(0);
     expect(r.scores.overall).toBeGreaterThan(60);
     expect(indexGraph(g).attackPath("db")).toEqual(["u", "waf", "api", "db"]);
+  });
+});
+
+describe("generic/self-hosted provider (no cloud account)", () => {
+  it("infers the learning provider and a self-hosted model from a student brief", () => {
+    const r = inferRequirements("I'm a student building a portfolio project: an AI chatbot over my class notes, no cloud account, want to run it on my laptop with Docker for free.", DEFAULT_REQUIREMENTS);
+    expect(r.requirements.provider).toBe("generic");
+    expect(r.requirements.ai.modelProvider).toBe("self_hosted");
+    expect(r.requirements.business.budgetMonthlyUsd).toBe(0);
+  });
+
+  it("generates a free, fully self-hosted architecture with a valid graph", () => {
+    const req = { ...DEFAULT_REQUIREMENTS, provider: "generic" as const, ai: { ...DEFAULT_REQUIREMENTS.ai, enabled: true, modelProvider: "self_hosted" as const, rag: true } };
+    const { graph: g, warnings } = generateArchitecture(req);
+    expect(parseGraph(g).ok).toBe(true);
+    expect(g.regions).toHaveLength(1);
+    for (const c of g.components) {
+      if (c.type === "client") continue;
+      expect(c.cost.monthlyUsd).toEqual({ min: 0, max: 0 });
+      expect(c.redundancy.multiAz).toBe(false);
+      expect(c.redundancy.multiRegion).toBe(false);
+    }
+    const llm = g.components.find((c) => c.id === "llm")!;
+    expect(llm.provider).toBe("self_hosted");
+    expect(llm.ai?.dataSentExternally).toBe(false);
+    expect(warnings.some((w) => /Docker Compose/.test(w))).toBe(true);
+  });
+
+  it("still honestly reports single points of failure and secrets weaknesses on a self-hosted stack", () => {
+    const req = { ...DEFAULT_REQUIREMENTS, provider: "generic" as const };
+    const { graph: g } = generateArchitecture(req);
+    const report = analyzeArchitecture(g);
+    expect(report.cost.monthly).toEqual({ min: 0, max: 0 });
+    expect(report.findings.some((f) => f.category === "single_point_of_failure" && f.affectedComponentIds.includes("db"))).toBe(true);
+    expect(report.findings.some((f) => f.category === "secrets_exposure")).toBe(true);
+    // No fabricated cloud rate-limit findings on a component that has no provider quota.
+    expect(report.findings.some((f) => f.category.startsWith("bottleneck_provider_rate_limit"))).toBe(false);
   });
 });

@@ -43,8 +43,8 @@ export function analyzeScalability(graph: ArchitectureGraph): { findings: Findin
 
 function assumedBaseline(graph: ArchitectureGraph, assumptions: string[]): number {
   const mau = graph.traffic?.monthlyActiveUsers;
-  const rps = mau ? Math.max(5, Math.round((mau * 40) / (30 * 8 * 3600))) : 50;
-  assumptions.push(`No traffic profile supplied; baseline assumed at ${rps} rps${mau ? ` (from ${mau} monthly users, 40 requests/user/day over an 8h day)` : ""}.`);
+  const rps = mau ? Math.max(5, Math.round((mau * 0.3 * 60) / (8 * 3600))) : 50;
+  assumptions.push(`No traffic profile supplied; baseline assumed at ${rps} rps${mau ? ` (from ${mau} monthly users, 30% active daily, ~60 requests each over an 8h window)` : ""}.`);
   return rps;
 }
 
@@ -179,7 +179,9 @@ function evaluateTier(idx: GraphIndex, demandRps: number, multiplier: number, sh
         demand > max ? `${Math.round(demand)} msg/s exceeds the tier limit of ${max} msg/s; producers are throttled.` : `${Math.round(demand)} of ${max} msg/s.`));
     }
 
-    if (c.type === "llm_provider" || c.type === "embedding_service" || c.type === "ml_inference") {
+    // Self-hosted models have no provider-enforced RPM/TPM quota; their real ceiling is local compute
+    // throughput, which isn't modelled here rather than invented as a fake number.
+    if ((c.type === "llm_provider" || c.type === "embedding_service" || c.type === "ml_inference") && !c.ai?.standby && c.provider !== "self_hosted") {
       const aiDemand = g.traffic?.aiRequestsPerSecond !== undefined ? g.traffic.aiRequestsPerSecond * multiplier : demand;
       const rpm = aiDemand * 60;
       const limit = c.scaling.requestsPerMinuteLimit ?? 500;

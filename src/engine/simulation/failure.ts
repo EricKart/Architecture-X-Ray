@@ -226,6 +226,7 @@ function seedsFor(idx: GraphIndex, scenario: FailureScenario, states: Map<string
     }
     case "ai_provider": {
       for (const c of idx.byType("llm_provider", "embedding_service", "ml_inference")) {
+        if (c.ai?.standby) continue;
         setState(states, c, "down", "Scenario: model provider outage / hard rate limiting", 0);
         seeds.push(c.id);
       }
@@ -282,6 +283,13 @@ function evaluateFlows(idx: GraphIndex, states: Map<string, AffectedComponent>):
     for (const s of f.steps) {
       const st = states.get(s.componentId);
       if (!st) continue;
+      const viaEdge = s.edgeId ? idx.edges.get(s.edgeId) : undefined;
+      if (st.state === "down" && viaEdge?.fallback) {
+        // The caller declared a fallback for this hop: the flow degrades instead of breaking.
+        state = "degraded";
+        brokenAt = brokenAt ?? st.name;
+        continue;
+      }
       if (st.state === "down") {
         state = "down";
         brokenAt = st.name;

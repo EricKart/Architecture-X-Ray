@@ -14,7 +14,7 @@ export function analyzeAi(graph: ArchitectureGraph): { findings: Finding[]; appl
   const findings: Finding[] = [];
 
   for (const c of graph.components) {
-    if (!c.ai) continue;
+    if (!c.ai || c.ai.standby) continue;
 
     if (c.ai.role === "llm" || c.ai.role === "embedding") {
       if (!c.ai.fallbackProvider && !c.ai.fallbackModel) {
@@ -41,7 +41,7 @@ export function analyzeAi(graph: ArchitectureGraph): { findings: Finding[]; appl
         });
       }
 
-      if ((c.ai.rateLimitHandling ?? "none") === "none") {
+      if ((c.ai.rateLimitHandling ?? "none") === "none" && c.provider !== "self_hosted") {
         findings.push({
           id: `ai-rate-limit-${c.id}`,
           engine: "ai",

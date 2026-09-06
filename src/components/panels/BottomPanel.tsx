@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
-import { useXRay, type BottomTab } from "@/lib/store";
+import { useXRay, useActiveGraph, useActiveReport, type BottomTab } from "@/lib/store";
 import { Button, ConfidenceChip, Empty, EvidenceChip, Eyebrow, ScoreBar, SeverityBadge, Stat, money } from "@/components/ui";
 import { complexityScore } from "@/engine/scoring/scores";
 import type { Engine, Severity } from "@/engine/analysis/types";
@@ -16,13 +16,14 @@ const TABS: Array<{ id: BottomTab; label: string }> = [
   { id: "scores", label: "Scores & diff" },
 ];
 
-export function BottomPanel() {
-  const tab = useXRay((s) => s.bottomTab);
+export function BottomPanel({ tab: override, hideTabs }: { tab?: BottomTab; hideTabs?: boolean } = {}) {
+  const storeTab = useXRay((s) => s.bottomTab);
+  const tab = override ?? storeTab;
   const setTab = useXRay((s) => s.setBottomTab);
-  const report = useXRay((s) => s.report);
+  const report = useActiveReport();
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 border-b border-line bg-sand-2 px-2">
+      <div className={clsx("flex items-center gap-1 border-b border-line bg-sand-2 px-2", hideTabs && "hidden")}>
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)} className={clsx("relative px-3 py-2 text-xs font-medium", tab === t.id ? "text-ink" : "text-ink-3 hover:text-ink")}>
             {t.label}
@@ -51,7 +52,7 @@ function NeedScan() {
 }
 
 function FindingsTab() {
-  const report = useXRay((s) => s.report);
+  const report = useActiveReport();
   const selectFinding = useXRay((s) => s.selectFinding);
   const selected = useXRay((s) => s.selectedFindingId);
   const [engine, setEngine] = useState<Engine | "all">("all");
@@ -93,11 +94,11 @@ function FindingsTab() {
 }
 
 function ScenariosTab() {
-  const report = useXRay((s) => s.report);
+  const report = useActiveReport();
   const sim = useXRay((s) => s.simulation);
   const simulate = useXRay((s) => s.simulate);
   const clear = useXRay((s) => s.clearSimulation);
-  const graph = useXRay((s) => s.graph);
+  const graph = useActiveGraph();
   const loading = useXRay((s) => s.loading.simulation);
   if (!graph) return null;
   const name = (id: string) => graph.components.find((c) => c.id === id)?.name ?? id;
@@ -207,7 +208,7 @@ function renderChain(sim: { seedIds: string[]; affected: Array<{ componentId: st
 }
 
 function TracesTab() {
-  const graph = useXRay((s) => s.graph);
+  const graph = useActiveGraph();
   const trace = useXRay((s) => s.trace);
   const runTrace = useXRay((s) => s.runTrace);
   const step = useXRay((s) => s.traceStep);
@@ -271,7 +272,7 @@ function TracesTab() {
 }
 
 function ScalabilityTab() {
-  const report = useXRay((s) => s.report);
+  const report = useActiveReport();
   const selectComponent = useXRay((s) => s.selectComponent);
   if (!report) return <NeedScan />;
   const r = report.scalability;
@@ -341,7 +342,7 @@ function ScalabilityTab() {
 }
 
 function CostTab() {
-  const report = useXRay((s) => s.report);
+  const report = useActiveReport();
   const selectFinding = useXRay((s) => s.selectFinding);
   if (!report) return <NeedScan />;
   const c = report.cost;
@@ -397,7 +398,7 @@ function CostTab() {
 }
 
 function OperationsTab() {
-  const report = useXRay((s) => s.report);
+  const report = useActiveReport();
   if (!report) return <NeedScan />;
   const o = report.operations;
   const tone = o.threeAmVerdict === "yes" ? "ok" : o.threeAmVerdict === "with_difficulty" ? "warn" : "bad";
@@ -443,9 +444,9 @@ function OperationsTab() {
 }
 
 function ScoresTab() {
-  const report = useXRay((s) => s.report);
+  const report = useActiveReport();
   const original = useXRay((s) => s.originalReport);
-  const graph = useXRay((s) => s.graph);
+  const graph = useActiveGraph();
   const originalGraph = useXRay((s) => s.originalGraph);
   const applied = useXRay((s) => s.appliedFixes);
   const reset = useXRay((s) => s.resetToOriginal);

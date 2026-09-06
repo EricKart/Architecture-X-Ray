@@ -72,6 +72,7 @@ export type Provider =
   | "azure"
   | "aws"
   | "gcp"
+  | "generic"
   | "cloudflare"
   | "openai"
   | "anthropic"
@@ -249,6 +250,8 @@ export interface AiProfile {
   modelPinned?: boolean;
   untrustedInput?: boolean;
   modelRouting?: boolean;
+  /** Receives traffic only when the primary fails or is throttled. */
+  standby?: boolean;
 }
 
 export interface Component {
